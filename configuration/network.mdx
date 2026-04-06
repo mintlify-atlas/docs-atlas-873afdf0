@@ -1,0 +1,68 @@
+---
+title: "Network Configuration"
+description: "Configure ports, proxy settings, and ZeroTier remote access"
+---
+
+CasaOS exposes several network configuration options through the web UI and API.
+
+## Changing the web UI port
+
+By default, CasaOS picks a random available port during installation and registers it with the gateway service. To change the port:
+
+<Steps>
+  <Step title="Open Settings">
+    Click the gear icon in the CasaOS dashboard to open **Settings**.
+  </Step>
+  <Step title="Navigate to Port">
+    Find the **Port** setting and enter your desired port number.
+  </Step>
+  <Step title="Apply">
+    Click **Save**. CasaOS will update the gateway and begin listening on the new port.
+  </Step>
+</Steps>
+
+You can also check available ports via the API:
+
+```bash
+# Check if a port is available
+curl http://<casaos-ip>/v1/port/state/8080
+
+# Get the current CasaOS port
+curl http://<casaos-ip>/v1/port/
+```
+
+## Outbound proxy
+
+CasaOS includes a server-side HTTP proxy utility (`GET /v1/sys/proxy?url=...`) that fetches an external URL from the CasaOS host and returns the response. This is used internally by the dashboard to retrieve remote resources. See [Proxy an external request](/api-reference/system#proxy-an-external-request) in the API reference for details.
+
+## ZeroTier remote access
+
+[ZeroTier](https://www.zerotier.com) creates a secure virtual network that lets you access your CasaOS from anywhere — without port forwarding or a VPN server.
+
+<Note>
+  ZeroTier One must be installed on your device separately before using this feature. CasaOS proxies ZeroTier API calls through `/v1/zt/*`.
+</Note>
+
+<Steps>
+  <Step title="Install ZeroTier One">
+    On your CasaOS device, install ZeroTier One:
+    ```bash
+    curl -s https://install.zerotier.com | sudo bash
+    ```
+  </Step>
+  <Step title="Enable in CasaOS">
+    Open **Settings** in CasaOS and navigate to the **ZeroTier** section to enable the integration.
+  </Step>
+  <Step title="Join a network">
+    Join your ZeroTier network through the CasaOS UI or via API:
+    ```bash
+    curl -X POST -H "Authorization: <token>" \
+      http://<casaos-ip>/v1/zt/network/<network-id>
+    ```
+  </Step>
+  <Step title="Authorize the device">
+    In the [ZeroTier Central](https://my.zerotier.com) dashboard, authorize your CasaOS device on the network.
+  </Step>
+</Steps>
+
+Once connected, you can access CasaOS at the ZeroTier IP from any device on the same network.

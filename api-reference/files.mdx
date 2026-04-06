@@ -1,0 +1,518 @@
+---
+title: "Files"
+description: "Upload, download, and manage files on your CasaOS"
+---
+
+The file endpoints expose operations for reading, writing, renaming, deleting, and batch-operating on files and directories stored on the CasaOS host. Large uploads use a chunk-based protocol so you can resume interrupted transfers.
+
+<Note>
+  All endpoints require a valid `Authorization` header. The token can also be passed as a `token` query parameter for browser-based download links.
+</Note>
+
+---
+
+## Download a file
+
+`GET /v1/file`
+
+Streams the file at the given path. The response includes `Content-Disposition: attachment`, the detected MIME type, file size, and last-modified timestamp.
+
+### Query parameters
+
+<ParamField query="path" type="string" required>
+  Absolute path to the file on the CasaOS host. Example: `/DATA/documents/report.pdf`.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url 'http://casaos.local/v1/file?path=/DATA/documents/report.pdf' \
+  --header 'Authorization: <token>' \
+  --output report.pdf
+```
+
+</CodeGroup>
+
+---
+
+## Create a file
+
+`POST /v1/file`
+
+Creates a new empty file at the specified path. Parent directories must already exist.
+
+### Request body
+
+<ParamField body="path" type="string" required>
+  Absolute path where the file should be created. Example: `/DATA/notes/todo.txt`.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request POST \
+  --url http://casaos.local/v1/file \
+  --header 'Authorization: <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{"path": "/DATA/notes/todo.txt"}'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK"
+}
+```
+
+---
+
+## Update file content
+
+`PUT /v1/file`
+
+Overwrites the content of an existing file. The file must already exist at the given path.
+
+### Request body
+
+<ParamField body="path" type="string" required>
+  Absolute path of the file to update. Example: `/DATA/notes/todo.txt`.
+</ParamField>
+
+<ParamField body="content" type="string" required>
+  New content to write into the file.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request PUT \
+  --url http://casaos.local/v1/file \
+  --header 'Authorization: <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{"path": "/DATA/notes/todo.txt", "content": "Buy milk\nCall dentist"}'
+```
+
+</CodeGroup>
+
+---
+
+## Rename a file or directory
+
+`PUT /v1/file/name`
+
+Renames (or moves) a file or directory. The destination parent directory must already exist. Mounted directories cannot be renamed.
+
+### Request body
+
+<ParamField body="old_path" type="string" required>
+  Current absolute path of the file or directory.
+</ParamField>
+
+<ParamField body="new_path" type="string" required>
+  Target absolute path after rename.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request PUT \
+  --url http://casaos.local/v1/file/name \
+  --header 'Authorization: <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{"old_path": "/DATA/notes/todo.txt", "new_path": "/DATA/notes/tasks.txt"}'
+```
+
+</CodeGroup>
+
+---
+
+## Read file content
+
+`GET /v1/file/content`
+
+Returns the full text content of a file as a JSON string. Suitable for small text files. For binary or large files, use the download endpoint instead.
+
+### Query parameters
+
+<ParamField query="path" type="string" required>
+  Absolute path of the file to read. Example: `/DATA/config/settings.json`.
+</ParamField>
+
+### Response body
+
+<ResponseField name="data" type="string">
+  Full text content of the file.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url 'http://casaos.local/v1/file/content?path=/DATA/config/settings.json' \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": "{\"theme\": \"dark\", \"language\": \"en\"}"
+}
+```
+
+---
+
+## Upload a file (chunked)
+
+CasaOS uses a resumable chunked upload protocol. Each file is split into numbered chunks that are sent individually. The server assembles the final file once all chunks are received.
+
+<Steps>
+  <Step title="Check whether a chunk is already uploaded">
+    Before sending a chunk, query `GET /v1/file/upload` to see if the server already has it. This enables resuming interrupted uploads.
+
+    ```bash cURL
+    curl --request GET \
+      --url 'http://casaos.local/v1/file/upload?path=/DATA&relativePath=video.mp4&filename=video.mp4&chunkNumber=1&totalChunks=5' \
+      --header 'Authorization: <token>'
+    ```
+
+    - `200` — chunk already exists, skip it.
+    - `204` — chunk not found, proceed to upload.
+  </Step>
+
+  <Step title="Upload each chunk">
+    Send the binary chunk data using `POST /v1/file/upload` as `multipart/form-data`.
+
+    ```bash cURL
+    curl --request POST \
+      --url http://casaos.local/v1/file/upload \
+      --header 'Authorization: <token>' \
+      --form 'path=/DATA' \
+      --form 'relativePath=video.mp4' \
+      --form 'filename=video.mp4' \
+      --form 'chunkNumber=1' \
+      --form 'totalChunks=5' \
+      --form 'chunkSize=1048576' \
+      --form 'currentChunkSize=1048576' \
+      --form 'totalSize=5242880' \
+      --form 'identifier=video.mp4' \
+      --form 'file=@/tmp/video.mp4.part1'
+    ```
+
+    Repeat for each chunk, incrementing `chunkNumber`.
+  </Step>
+
+  <Step title="Confirm assembly">
+    When the final chunk is uploaded and `chunkNumber == totalChunks`, the server automatically assembles the complete file at `path/relativePath`. The temporary chunk files are cleaned up after 11 seconds.
+  </Step>
+</Steps>
+
+### GET /v1/file/upload — check upload chunk status
+
+<ParamField query="path" type="string" required>
+  Destination directory on the CasaOS host. Example: `/DATA`.
+</ParamField>
+
+<ParamField query="relativePath" type="string" required>
+  Path of the file relative to `path`. Example: `video.mp4` or `subdir/video.mp4`.
+</ParamField>
+
+<ParamField query="filename" type="string" required>
+  File name only (no directory). Example: `video.mp4`.
+</ParamField>
+
+<ParamField query="chunkNumber" type="string" required>
+  1-based index of the chunk to check. Example: `1`.
+</ParamField>
+
+<ParamField query="totalChunks" type="integer" required>
+  Total number of chunks the file is split into. Example: `5`.
+</ParamField>
+
+### POST /v1/file/upload — upload a chunk
+
+<ParamField body="path" type="string" required>
+  Destination directory on the CasaOS host. Example: `/DATA`.
+</ParamField>
+
+<ParamField body="relativePath" type="string" required>
+  Path of the file relative to `path`.
+</ParamField>
+
+<ParamField body="filename" type="string" required>
+  File name only.
+</ParamField>
+
+<ParamField body="chunkNumber" type="string" required>
+  1-based index of this chunk.
+</ParamField>
+
+<ParamField body="totalChunks" type="string" required>
+  Total number of chunks.
+</ParamField>
+
+<ParamField body="chunkSize" type="string" required>
+  Standard chunk size in bytes. Example: `1048576`.
+</ParamField>
+
+<ParamField body="currentChunkSize" type="string" required>
+  Actual size of this chunk in bytes (may differ for the last chunk).
+</ParamField>
+
+<ParamField body="totalSize" type="string" required>
+  Total file size in bytes.
+</ParamField>
+
+<ParamField body="identifier" type="string" required>
+  A unique identifier for this upload session. Typically the file name.
+</ParamField>
+
+<ParamField body="file" type="file" required>
+  Binary chunk data.
+</ParamField>
+
+---
+
+## List directory contents
+
+`GET /v1/folder`
+
+Returns paginated contents of a directory.
+
+### Query parameters
+
+<ParamField query="path" type="string" required>
+  Absolute path of the directory to list. Example: `/DATA`.
+</ParamField>
+
+### Response body
+
+<ResponseField name="data" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="content" type="object[]">
+      Array of file and directory entries.
+      <Expandable title="entry properties">
+        <ResponseField name="name" type="string">File or directory name.</ResponseField>
+        <ResponseField name="size" type="integer">Size in bytes. `0` for directories.</ResponseField>
+        <ResponseField name="is_dir" type="boolean">`true` if the entry is a directory.</ResponseField>
+        <ResponseField name="modified" type="string">Last modified timestamp (RFC3339).</ResponseField>
+        <ResponseField name="path" type="string">Full absolute path.</ResponseField>
+        <ResponseField name="extensions" type="object">
+          Extra metadata. May include `share.shared`, `share.id`, and `mounted` (boolean) for entries under `/mnt` or `/media`.
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="total" type="integer">Total number of entries in the directory (before pagination).</ResponseField>
+    <ResponseField name="index" type="integer">Current page index.</ResponseField>
+    <ResponseField name="size" type="integer">Page size.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url 'http://casaos.local/v1/folder?path=/DATA' \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": {
+    "content": [
+      {
+        "name": "documents",
+        "size": 0,
+        "is_dir": true,
+        "modified": "2024-03-15T10:30:00Z",
+        "path": "/DATA/documents",
+        "extensions": {}
+      },
+      {
+        "name": "photo.jpg",
+        "size": 2048576,
+        "is_dir": false,
+        "modified": "2024-03-14T08:00:00Z",
+        "path": "/DATA/photo.jpg",
+        "extensions": {}
+      }
+    ],
+    "total": 2,
+    "index": 1,
+    "size": 50
+  }
+}
+```
+
+---
+
+## Create a directory
+
+`POST /v1/folder`
+
+Creates a directory (and all necessary parent directories) at the given path.
+
+### Request body
+
+<ParamField body="path" type="string" required>
+  Absolute path of the directory to create. Example: `/DATA/projects/2024`.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request POST \
+  --url http://casaos.local/v1/folder \
+  --header 'Authorization: <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{"path": "/DATA/projects/2024"}'
+```
+
+</CodeGroup>
+
+---
+
+## Delete files or directories
+
+`DELETE /v1/batch`
+
+Permanently deletes one or more files or directories. Mounted directories cannot be deleted.
+
+<Warning>
+  Deletion is permanent and cannot be undone. There is no recycle bin.
+</Warning>
+
+### Request body
+
+An array of absolute paths to delete.
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request DELETE \
+  --url http://casaos.local/v1/batch \
+  --header 'Authorization: <token>' \
+  --header 'Content-Type: application/json' \
+  --data '["/DATA/old-project", "/DATA/temp.log"]'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK"
+}
+```
+
+---
+
+## Batch file operations (copy or move)
+
+`POST /v1/batch/task`
+
+Enqueues a copy or move operation for one or more files. Operations run asynchronously; progress is reported via the notification system.
+
+### Request body
+
+<ParamField body="type" type="string" required>
+  Operation type. Must be `"copy"` or `"move"`.
+</ParamField>
+
+<ParamField body="to" type="string" required>
+  Destination directory path. Example: `/DATA/archive`.
+</ParamField>
+
+<ParamField body="item" type="object[]" required>
+  List of items to process.
+  <Expandable title="item properties">
+    <ParamField body="from" type="string" required>
+      Absolute source path of the file or directory to copy/move.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request POST \
+  --url http://casaos.local/v1/batch/task \
+  --header 'Authorization: <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "type": "copy",
+    "to": "/DATA/archive",
+    "item": [
+      {"from": "/DATA/documents/report.pdf"},
+      {"from": "/DATA/documents/notes.txt"}
+    ]
+  }'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK"
+}
+```
+
+---
+
+## Get image preview
+
+`GET /v1/image`
+
+Returns image data for the file at the given path. Pass `type=thumbnail` to get a 100px-wide resized version, or omit `type` (or use `original`) to get the full image.
+
+### Query parameters
+
+<ParamField query="path" type="string" required>
+  Absolute path to the image file. Example: `/DATA/photos/vacation.jpg`.
+</ParamField>
+
+<ParamField query="type" type="string" default="original">
+  `thumbnail` returns a 100-pixel-wide preview. Any other value (or omitting the parameter) returns the original image bytes.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+# Get a thumbnail
+curl --request GET \
+  --url 'http://casaos.local/v1/image?path=/DATA/photos/vacation.jpg&type=thumbnail' \
+  --header 'Authorization: <token>' \
+  --output thumbnail.jpg
+```
+
+</CodeGroup>

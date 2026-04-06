@@ -1,0 +1,51 @@
+---
+title: "Users and Security"
+description: "Manage user accounts and secure access to your CasaOS"
+---
+
+CasaOS uses JWT-based authentication to protect the web UI and API. All requests from remote clients must include a valid token; requests from `localhost` bypass authentication automatically.
+
+## Managing user accounts
+
+User accounts are managed through the CasaOS dashboard:
+
+<Steps>
+  <Step title="Open Settings">
+    Click the gear icon to open **Settings**, then navigate to **Account**.
+  </Step>
+  <Step title="Change your password">
+    Enter your current password and a new password, then click **Save**.
+  </Step>
+</Steps>
+
+<Warning>
+  Change the default password immediately after your first login. CasaOS is designed for home network use — if your device is exposed to the internet, a strong password is essential.
+</Warning>
+
+## SSH terminal access
+
+CasaOS includes a browser-based SSH terminal so you can access your device's shell without a separate SSH client:
+
+<Steps>
+  <Step title="Open the terminal">
+    In the CasaOS dashboard, click the **Terminal** shortcut (or navigate to **Apps → Terminal**).
+  </Step>
+  <Step title="Log in">
+    Enter your Linux system credentials (not your CasaOS account password) to start a shell session.
+  </Step>
+</Steps>
+
+<Note>
+  The web SSH terminal runs under your Linux user account. System-level operations still require `sudo` with the appropriate permissions.
+</Note>
+
+## API authentication
+
+When using the CasaOS API from a script or external tool, include your token in every request. See [Authentication](/api-reference/authentication) for details on how to obtain and use tokens.
+
+## Security best practices
+
+- Keep CasaOS updated to get the latest security fixes (`Settings → Update`)
+- Use a strong, unique password for your CasaOS account
+- Avoid exposing the CasaOS port directly to the internet — use ZeroTier or a VPN instead
+- Regularly review which apps are running on your server

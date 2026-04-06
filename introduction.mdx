@@ -1,0 +1,68 @@
+---
+title: "Welcome to CasaOS"
+description: "An open-source personal cloud system that turns any hardware into an elegant home server."
+---
+
+CasaOS is a simple, easy-to-use personal cloud system built for home users and self-hosters. It runs on your own hardware — a Raspberry Pi, an old PC, a NUC, or a ZimaBoard — and gives you a beautiful web interface to manage files, install apps, and control your home server without needing any technical background.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Install CasaOS in under a minute with a single command
+  </Card>
+  <Card title="Hardware Compatibility" icon="microchip" href="/hardware-compatibility">
+    See which devices and operating systems are supported
+  </Card>
+  <Card title="App Store" icon="store" href="/features/app-store">
+    Install Nextcloud, Jellyfin, HomeAssistant, and 100,000+ Docker apps
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/introduction">
+    Integrate with CasaOS using the REST API
+  </Card>
+</CardGroup>
+
+## What is CasaOS?
+
+CasaOS transforms any Linux-based computer into a personal cloud server. Instead of paying for subscription cloud services, you own your data and run your applications at home — with full control over privacy, storage, and costs.
+
+<CardGroup cols={2}>
+  <Card title="Dashboard" icon="gauge" href="/features/dashboard">
+    Monitor CPU, memory, disk, and network in real time
+  </Card>
+  <Card title="File Manager" icon="folder-open" href="/features/file-manager">
+    Browse, upload, download, and organize your files
+  </Card>
+  <Card title="Storage Management" icon="hard-drive" href="/features/storage">
+    Mount drives, manage SMB shares, and connect cloud storage
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/configuration/overview">
+    Customize network settings, users, and system preferences
+  </Card>
+</CardGroup>
+
+## Get started in 60 seconds
+
+<Steps>
+  <Step title="Prepare your hardware">
+    Any amd64, arm64, or armv7 device running Debian, Ubuntu, or Raspberry Pi OS will work. See [hardware compatibility](/hardware-compatibility) for the full list.
+  </Step>
+  <Step title="Run the installer">
+    SSH into your device and run one command to install CasaOS:
+    ```bash
+    wget -qO- https://get.casaos.io | sudo bash
+    ```
+  </Step>
+  <Step title="Open the web UI">
+    Navigate to your device's IP address in a browser. CasaOS will guide you through initial setup.
+  </Step>
+  <Step title="Install your first app">
+    Open the App Store, find an app like Nextcloud or Jellyfin, and click **Install**. CasaOS handles everything automatically.
+  </Step>
+</Steps>
+
+## Why CasaOS?
+
+- **No cloud required** — your data stays on your hardware
+- **No technical background needed** — intuitive UI designed for home scenarios
+- **100,000+ apps** — any Docker app can be installed with one click
+- **Multi-architecture** — runs on amd64, arm64, and armv7 devices
+- **Open source** — Apache 2.0 licensed, community-driven development

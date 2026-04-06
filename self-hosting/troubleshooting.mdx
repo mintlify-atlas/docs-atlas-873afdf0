@@ -1,0 +1,236 @@
+---
+title: "Troubleshooting"
+description: "Diagnose and resolve common CasaOS issues"
+---
+
+Use this guide to diagnose and fix common problems with your CasaOS installation.
+
+## Check service health
+
+Before diving into specific issues, check whether all CasaOS services are running. The health API returns the running and not-running state of every `casaos-*` systemd service:
+
+<CodeGroup>
+
+```bash curl
+curl -s http://localhost/v2/casaos/health/services
+```
+
+```bash wget
+wget -qO- http://localhost/v2/casaos/health/services
+```
+
+</CodeGroup>
+
+A healthy response looks like this:
+
+```json
+{
+  "data": {
+    "running": [
+      "casaos-gateway.service",
+      "casaos-app-management.service",
+      "casaos-local-storage.service",
+      "casaos-user-service.service",
+      "casaos.service"
+    ],
+    "not_running": []
+  }
+}
+```
+
+Any service listed under `not_running` should be investigated further using the systemd commands below.
+
+## Common issues
+
+<AccordionGroup>
+  <Accordion title="CasaOS is not accessible after installation">
+    If you cannot reach the CasaOS web UI in your browser, work through the following steps.
+
+    **Find your device's IP address**
+
+    Run this on the device to list its network interfaces and addresses:
+
+    ```bash
+    ip addr show
+    ```
+
+    Look for an `inet` address on your primary network interface (for example, `eth0` or `wlan0`). Open that IP address in your browser — for example, `http://192.168.1.100`.
+
+    **Check that CasaOS is running**
+
+    ```bash
+    systemctl status casaos.service
+    ```
+
+    If the service is stopped or failed, start it:
+
+    ```bash
+    sudo systemctl start casaos.service
+    ```
+
+    **Check the gateway service**
+
+    CasaOS uses a gateway service to route web traffic. Verify it is running:
+
+    ```bash
+    systemctl status casaos-gateway.service
+    ```
+
+    If it is not running, start it:
+
+    ```bash
+    sudo systemctl start casaos-gateway.service
+    ```
+  </Accordion>
+
+  <Accordion title="An app won't install from the App Store">
+    App installation failures are usually caused by Docker problems or insufficient disk space.
+
+    **Check available disk space**
+
+    ```bash
+    df -h /
+    ```
+
+    If the filesystem is more than 90% full, free up space before retrying the installation.
+
+    **Check the Docker service**
+
+    CasaOS uses Docker to run all apps. Confirm Docker is running:
+
+    ```bash
+    systemctl status docker.service
+    ```
+
+    If Docker is not running, start it:
+
+    ```bash
+    sudo systemctl start docker.service
+    ```
+
+    **Inspect Docker directly**
+
+    Check for recent Docker errors:
+
+    ```bash
+    sudo journalctl -u docker.service -n 50
+    ```
+  </Accordion>
+
+  <Accordion title="File uploads are failing">
+    Upload failures are typically caused by insufficient disk space or file permission issues.
+
+    **Check available disk space**
+
+    ```bash
+    df -h /DATA
+    ```
+
+    **Check permissions on the upload destination**
+
+    Make sure the target directory is writable:
+
+    ```bash
+    ls -la /DATA
+    ```
+
+    If the directory is not writable by the CasaOS process, correct the ownership:
+
+    ```bash
+    sudo chown -R casaos:casaos /DATA
+    ```
+
+    **Check the CasaOS log for upload errors**
+
+    ```bash
+    sudo journalctl -u casaos.service -n 100 | grep -i upload
+    ```
+  </Accordion>
+
+  <Accordion title="Services are showing as down">
+    If the health endpoint reports services under `not_running`, use systemd to investigate each one.
+
+    **View the status and recent log output for a specific service**
+
+    ```bash
+    systemctl status casaos-app-management.service
+    ```
+
+    **Follow live logs for a service**
+
+    ```bash
+    sudo journalctl -u casaos-app-management.service -f
+    ```
+
+    **Restart a stopped service**
+
+    ```bash
+    sudo systemctl restart casaos-app-management.service
+    ```
+
+    **Restart all CasaOS services at once**
+
+    ```bash
+    sudo systemctl restart casaos*.service
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## View logs
+
+### Via the API
+
+Download a zip archive of all CasaOS log files:
+
+```bash
+curl -o casaos-logs.zip http://localhost/v2/casaos/health/logs
+```
+
+### From the filesystem
+
+Log files are written to `/var/log/casaos/`. You can list them with:
+
+```bash
+ls /var/log/casaos/
+```
+
+To read a specific log file:
+
+```bash
+sudo cat /var/log/casaos/casaos.log
+```
+
+### Via journald
+
+CasaOS services log to the system journal as well. Use `journalctl` to query them:
+
+<CodeGroup>
+
+```bash All CasaOS services
+sudo journalctl -u "casaos*.service" -n 200
+```
+
+```bash Main service only
+sudo journalctl -u casaos.service -n 100
+```
+
+```bash Follow live output
+sudo journalctl -u "casaos*.service" -f
+```
+
+</CodeGroup>
+
+## Diagnostic summary
+
+Run these commands together to collect a snapshot of your system state for bug reports:
+
+```bash
+echo "=== CasaOS version ===" && casaos -v && \
+echo "=== Service status ===" && systemctl status casaos*.service --no-pager && \
+echo "=== Disk space ===" && df -h && \
+echo "=== Docker status ===" && systemctl status docker.service --no-pager
+```
+
+<Tip>
+  When reporting a bug on [GitHub](https://github.com/IceWhaleTech/CasaOS/issues), include the output of the diagnostic summary above along with your OS version (`cat /etc/os-release`) and hardware architecture (`uname -m`).
+</Tip>

@@ -1,0 +1,79 @@
+---
+title: "App Store"
+description: "Install and manage Docker apps with one click"
+---
+
+The CasaOS App Store lets you install self-hosted applications on your personal cloud without writing any configuration files or running Docker commands. Each app is packaged as a Docker container and managed entirely through the CasaOS interface.
+
+<Note>CasaOS is compatible with any image published to Docker Hub or any other container registry. The Docker ecosystem contains over 100,000 publicly available apps, all of which you can install on CasaOS.</Note>
+
+## What the App Store offers
+
+The App Store has two ways to install applications:
+
+- **Curated apps** — A hand-picked selection of popular self-hosted apps that are pre-configured and tested to work out of the box on CasaOS.
+- **Custom Docker apps** — Install any Docker image by providing the image name and optional configuration. CasaOS handles pulling the image, setting up volumes, and starting the container.
+
+## Popular apps
+
+Some of the apps available in the curated store:
+
+| App | What it does |
+|---|---|
+| **Nextcloud** | Personal file sync, sharing, and collaboration suite |
+| **Home Assistant** | Open-source home automation platform |
+| **AdGuard Home** | Network-wide DNS-based ad and tracker blocking |
+| **Jellyfin** | Media server for streaming your personal video, music, and photo library |
+
+## Installing an app
+
+<Steps>
+  <Step title="Open the App Store">
+    Click **App Store** in the CasaOS sidebar.
+  </Step>
+  <Step title="Find the app you want">
+    Browse the curated list or use the search bar to find a specific app by name.
+  </Step>
+  <Step title="Click Install">
+    Click the app card to open its detail page, then click **Install**. CasaOS pulls the Docker image and starts the container automatically.
+  </Step>
+  <Step title="Wait for the installation to complete">
+    A progress indicator appears during the download and setup. Installation time depends on the size of the image and your internet connection.
+  </Step>
+  <Step title="Open the app">
+    Once installed, the app appears as a widget on your dashboard. Click it to open the app in a new tab.
+  </Step>
+</Steps>
+
+## Managing installed apps
+
+After installation, you can manage each app directly from its widget on the dashboard or from the App Store's **Installed** view:
+
+- **Start / Stop** — Start or stop the container without removing it.
+- **Update** — Pull a newer image version and recreate the container.
+- **Settings** — View and edit the container's port mappings, environment variables, and volume mounts.
+- **Uninstall** — Stop the container and remove it from CasaOS. Container data stored in named volumes is preserved by default unless you choose to delete it.
+
+## Installing a custom Docker app
+
+If an app is not listed in the curated store, you can install it using a Docker image directly:
+
+<Steps>
+  <Step title="Open the App Store">
+    Click **App Store** in the sidebar.
+  </Step>
+  <Step title="Click the custom install button">
+    Select **Install a custom app** (the button is typically labelled with a `+` icon or similar).
+  </Step>
+  <Step title="Enter the image name">
+    Provide the Docker image name, for example `portainer/portainer-ce` or `ghcr.io/paperless-ngx/paperless-ngx`.
+  </Step>
+  <Step title="Configure the container">
+    Set port mappings, environment variables, and volume mounts as required by the image's documentation.
+  </Step>
+  <Step title="Click Install">
+    CasaOS pulls the image and starts the container using the configuration you provided.
+  </Step>
+</Steps>
+
+<Tip>Check the image's Docker Hub page or GitHub repository for the correct environment variables and volume paths before installing a custom app.</Tip>

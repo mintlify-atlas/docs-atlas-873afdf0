@@ -1,0 +1,71 @@
+---
+title: "File Manager"
+description: "Browse, upload, download, and manage files on your personal cloud"
+---
+
+The CasaOS file manager gives you a web-based interface to work with files stored on your server. You can browse directories, upload files from your computer, download files to your computer, create and rename files and folders, move or copy items between locations, and delete files — all without using a terminal.
+
+## Browsing files
+
+Open **Files** from the CasaOS sidebar to start at the root of your storage. The file manager displays file and folder names, sizes, and last-modified dates. Folders are listed alongside files and can be opened by clicking them.
+
+Paths under `/mnt` and `/media` show an additional **mounted** indicator so you can see at a glance which directories are mount points for external drives or network shares.
+
+Files or folders that are currently being copied or moved are hidden from the listing until the operation completes, preventing partial views of in-progress transfers.
+
+## Uploading files
+
+CasaOS supports both standard and chunked file uploads, which means large files are transferred reliably even on slower connections.
+
+<Steps>
+  <Step title="Navigate to the destination folder">
+    Browse to the folder where you want the uploaded files to appear.
+  </Step>
+  <Step title="Click Upload">
+    Click the **Upload** button in the toolbar.
+  </Step>
+  <Step title="Select your files">
+    Choose one or more files from your computer. You can also select entire folder structures and CasaOS will recreate the directory layout on the server.
+  </Step>
+  <Step title="Wait for the upload to finish">
+    A progress indicator tracks the transfer. For large files, CasaOS automatically splits the upload into chunks and reassembles them on the server once all chunks arrive.
+  </Step>
+</Steps>
+
+<Note>If a file with the same name already exists at the destination, CasaOS reports a conflict and does not overwrite the existing file automatically.</Note>
+
+## Downloading files
+
+You can download individual files or select multiple files and folders to download them as a compressed archive.
+
+- **Single file** — Click the file to select it, then choose **Download**. The file is sent directly to your browser.
+- **Multiple files or folders** — Select more than one item, then choose **Download**. CasaOS packages the selection into a compressed archive (`zip`, `tar`, or `tar.gz`) and sends it to your browser.
+
+## Creating files and folders
+
+- **New folder** — Click **New folder**, enter a name, and confirm. CasaOS creates the full path if intermediate directories are missing.
+- **New file** — Click **New file**, enter a path including the filename, and confirm. An empty file is created at that location.
+
+## Renaming
+
+Select a file or folder, choose **Rename**, and enter the new name. CasaOS prevents renaming items that are currently mounted as storage points.
+
+## Moving and copying
+
+Select one or more items and choose **Move** or **Copy**, then pick a destination folder. CasaOS tracks the progress of the operation internally and hides the items from the listing while the transfer is running.
+
+<Warning>Moving a mounted directory is not allowed. Unmount the storage first before attempting to move or rename the mount point.</Warning>
+
+## Deleting files
+
+Select one or more files or folders and choose **Delete**. The items are permanently removed — CasaOS does not maintain a trash folder. Mounted directories cannot be deleted until they are unmounted.
+
+## Image preview
+
+When you open an image file in the file manager, CasaOS can display it in your browser directly. Thumbnail-size previews (100 px wide) are generated on the server for quick display in listings, while the full-resolution version is available on demand.
+
+Supported image formats depend on the file type detection built into the server, which reads the file's binary header rather than relying on the file extension.
+
+## Sharing folders over the network
+
+Folders visible in the file manager can be shared as SMB/Samba shares with other devices on your local network. Shared folders show a **shared** badge in the file listing. See [Storage Management](/features/storage) for details on creating and managing SMB shares.

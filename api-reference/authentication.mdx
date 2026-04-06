@@ -1,0 +1,70 @@
+---
+title: "Authentication"
+description: "Authenticate API requests using JWT tokens"
+---
+
+The CasaOS API uses JWT (JSON Web Token) for authentication. Most endpoints require a valid token. Requests originating from `127.0.0.1` (localhost) skip authentication entirely.
+
+<Warning>
+  Treat your token like a password. Anyone with a valid token can make authenticated requests to your CasaOS instance. Do not share tokens or expose them in client-side code.
+</Warning>
+
+## Getting a token
+
+Tokens are issued through the CasaOS web UI after login. To retrieve your token:
+
+1. Open the CasaOS web UI in your browser (`http://<your-casaos-ip>/`).
+2. Log in with your CasaOS credentials.
+3. Open your browser's developer tools and inspect network requests made after login. The token appears in the `Authorization` header of authenticated requests.
+
+<Tip>
+  If you are building an integration that needs to obtain a token programmatically, authenticate through the CasaOS user service API (part of the `casaos-user-service` component), which is separate from the core CasaOS API documented here.
+</Tip>
+
+## Passing your token
+
+You can pass the token in two ways: as an HTTP header or as a URL query parameter.
+
+<CodeGroup>
+
+```bash Authorization header
+curl http://192.168.1.100/v2/casaos/health/services \
+  -H "Authorization: <your-token>"
+```
+
+```bash Query parameter
+curl "http://192.168.1.100/v2/casaos/health/services?token=<your-token>"
+```
+
+</CodeGroup>
+
+Both methods work for all authenticated endpoints. The `Authorization` header is preferred — avoid putting tokens in URLs when possible, since URLs can appear in server logs.
+
+## Localhost bypass
+
+Requests from `127.0.0.1` (IPv4 loopback) or `::1` (IPv6 loopback) skip JWT validation entirely. This applies to both the v1 and v2 APIs.
+
+This means scripts or services running directly on your CasaOS device can call the API without a token:
+
+```bash
+# No token needed when running on the device itself
+curl http://127.0.0.1/v2/casaos/health/services
+```
+
+## Error responses
+
+If authentication fails, the API returns a `401 Unauthorized` response:
+
+```json
+{
+  "message": "Unauthorized"
+}
+```
+
+Common causes:
+
+| Cause | Resolution |
+|-------|-----------|
+| Missing token | Include the token in the `Authorization` header or `?token=` query parameter |
+| Expired token | Log in to the CasaOS UI again to obtain a fresh token |
+| Invalid token | Verify you are copying the full token value without extra whitespace |

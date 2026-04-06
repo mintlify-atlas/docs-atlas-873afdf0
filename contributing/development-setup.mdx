@@ -1,0 +1,162 @@
+---
+title: "Development setup"
+description: "Set up a local development environment for CasaOS"
+---
+
+CasaOS is a Go backend with a Node.js/Yarn frontend. This guide walks through forking the repository, cloning it into the correct Go workspace location, installing dependencies, and building the project.
+
+## Prerequisites
+
+The following tools must be installed before you begin. Use your system's package manager (`apt`, `brew`, `yum`, etc.) to install them.
+
+| Tool | Version |
+|------|---------|
+| Go | > v1.17.0 |
+| Node.js | Latest LTS recommended |
+| Yarn | Any stable version |
+
+<Note>
+  CasaOS uses Go modules, so your clone location matters. Go looks up packages by their module path (`github.com/IceWhaleTech/CasaOS`), so the repository must live inside your GOPATH workspace. Check your GOPATH with `go env GOPATH`.
+</Note>
+
+## Set up the repository
+
+<Steps>
+  <Step title="Fork the repository">
+    [Fork the CasaOS repository](https://github.com/IceWhaleTech/CasaOS/fork) onto your own GitHub account. This gives you a personal remote you can push branches to and open pull requests from.
+  </Step>
+
+  <Step title="Create the workspace directory">
+    Navigate to your Go workspace and create the path that matches the module name:
+
+    ```bash
+    cd $(go env GOPATH)
+    mkdir -p src/github.com/<your-github-username>
+    cd src/github.com/<your-github-username>
+    ```
+
+    Replace `<your-github-username>` with your actual GitHub username. If the directory already exists, skip the `mkdir` step.
+  </Step>
+
+  <Step title="Clone with submodules">
+    Clone your fork with submodule support. The `--recurse-submodules` flag initializes the UI submodule, and `--remote-submodules` pins each submodule to its latest remote tracking branch:
+
+    ```bash
+    git clone --recurse-submodules --remote-submodules https://github.com/<your-github-username>/CasaOS.git
+    ```
+
+    Then enter the project directory:
+
+    ```bash
+    cd CasaOS
+    ```
+  </Step>
+
+  <Step title="Install frontend dependencies and build the UI">
+    The frontend lives in the `UI` submodule. Install its dependencies and produce the production build that the Go backend embeds at compile time:
+
+    ```bash
+    cd UI
+    yarn install
+    yarn build
+    cd ..
+    ```
+  </Step>
+
+  <Step title="Install Go dependencies">
+    Fetch all Go module dependencies declared in `go.mod`:
+
+    ```bash
+    go get
+    ```
+  </Step>
+</Steps>
+
+## Build the project
+
+Use `make` to build both the UI and the backend together, or build each component individually.
+
+<CodeGroup>
+
+```bash Full build
+make build
+```
+
+```bash Backend only
+make build-backend
+```
+
+```bash UI only
+make build-ui
+```
+
+</CodeGroup>
+
+The `build-backend` target compiles a static binary named `casa` and compresses it with UPX:
+
+```bash
+export CGO_ENABLED=1
+export CGO_LDFLAGS=-static
+go build -o ./casa main.go
+upx --lzma --best casa
+```
+
+<Note>
+  `CGO_ENABLED=1` is required because CasaOS links against SQLite through CGo. If you don't have UPX installed, run the `go build` step directly and skip compression for development builds.
+</Note>
+
+## Run the backend
+
+After building, run the binary directly. The service binds to a random available port on `127.0.0.1` and registers its routes with the CasaOS Gateway service:
+
+```bash
+./casa
+```
+
+To specify a custom config file or database path:
+
+```bash
+./casa -c /path/to/casaos.conf -db /path/to/db
+```
+
+To print the current version and exit:
+
+```bash
+./casa -v
+```
+
+## Regenerate OpenAPI code
+
+CasaOS uses `oapi-codegen` to generate typed server stubs and client code from the OpenAPI spec at `api/casaos/openapi.yaml`. Run `go generate` in the project root to regenerate:
+
+```bash
+go generate ./...
+```
+
+This produces `codegen/casaos_api.go` from the local spec and `codegen/message_bus/api.go` from the upstream Message Bus spec.
+
+## Add an upstream remote
+
+Add the original repository as a remote named `upstream` so you can pull in new changes:
+
+```bash
+git remote add upstream https://github.com/IceWhaleTech/CasaOS.git
+```
+
+To sync your fork with the latest upstream changes:
+
+```bash
+git fetch upstream
+git merge upstream/main
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture overview" icon="sitemap" href="/contributing/architecture">
+    Understand how the service layer, routing, and API versions are structured
+  </Card>
+  <Card title="API reference" icon="code" href="/api-reference/introduction">
+    Explore the CasaOS REST API endpoints
+  </Card>
+</CardGroup>

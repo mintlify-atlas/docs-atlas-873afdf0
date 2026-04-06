@@ -1,23 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "CasaOS",
+  "projectType": "saas",
+  "projectName": "CasaOS",
+  "projectDescription": "CasaOS is an open-source personal cloud system that turns any hardware into an elegant home server with a web UI, app store, file management, and Docker app support.",
   "theme": "almond",
-  "colors": {
-    "primary": "#0469c4",
-    "light": "#47e0f9"
-  },
-  "favicon": "/favicon.svg",
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/IceWhaleTech/CasaOS"
-    }
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/IceWhaleTech/CasaOS"
-    }
-  },
+  "primaryColor": "#0469c4",
+  "lightColor": "#47e0f9",
+  "darkColor": null,
   "navigation": {
     "tabs": [
       {
@@ -88,5 +76,44 @@
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "One-liner installation on Debian, Ubuntu, and Raspberry Pi OS",
+    "Web-based dashboard with hardware utilization widgets",
+    "App store with one-click Docker app installation (100,000+ apps)",
+    "Elegant file and drive manager with no technical knowledge required",
+    "SMB/Samba network share management",
+    "ZeroTier network integration for remote access",
+    "WebSocket-based real-time hardware status updates",
+    "REST API (v1 and v2) with JWT authentication",
+    "Multi-architecture support: amd64, arm64, armv7",
+    "SystemD service integration with automatic startup"
+  ],
+  "publicApiSurface": [
+    "GET /v2/casaos/health/services",
+    "GET /v2/casaos/health/ports",
+    "GET /v2/casaos/health/logs",
+    "GET /v2/casaos/file/upload",
+    "POST /v2/casaos/file/upload",
+    "GET /v1/sys/version",
+    "POST /v1/sys/update",
+    "GET /v1/sys/hardware",
+    "GET /v1/sys/utilization",
+    "GET /v1/file",
+    "POST /v1/file",
+    "PUT /v1/file",
+    "POST /v1/file/upload",
+    "GET /v1/folder",
+    "POST /v1/folder",
+    "DELETE /v1/batch",
+    "POST /v1/batch/task",
+    "GET /v1/cloud",
+    "DELETE /v1/cloud",
+    "GET /v1/samba/connections",
+    "POST /v1/samba/connections",
+    "GET /v1/samba/shares",
+    "POST /v1/samba/shares",
+    "GET /v1/port",
+    "GET /v1/other/search"
+  ]
 }

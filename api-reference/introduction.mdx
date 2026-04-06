@@ -1,33 +1,107 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "API Reference"
+description: "Integrate with CasaOS using the REST API"
 ---
 
+The CasaOS REST API lets you programmatically interact with your CasaOS instance — checking system health, managing files, controlling storage, and more. All requests and responses use JSON.
+
 <Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
+  The CasaOS API is only available on your local network. Use your device's IP address to connect (for example, `http://192.168.1.100/`). The API is not exposed to the internet by default.
 </Note>
 
-## Welcome
+## API versions
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+CasaOS exposes two API versions, both served from the same base URL (`http://<your-casaos-ip>/`).
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+### v2 — current API
 
-## Authentication
+**Base path:** `/v2/casaos/`
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
+The v2 API is the current, actively maintained API. It follows the OpenAPI 3.0 specification and includes request validation.
+
+| Category | Endpoints |
+|----------|-----------|
+| Health   | `/v2/casaos/health/services`, `/v2/casaos/health/ports`, `/v2/casaos/health/logs` |
+| Files    | `/v2/casaos/file/upload`, `/v2/casaos/file/test` |
+
+### v1 — legacy API
+
+**Base path:** `/v1/`
+
+The v1 API covers a broader set of functionality. It remains available but is considered legacy.
+
+| Category   | Base path           |
+|------------|---------------------|
+| System     | `/v1/sys/`          |
+| Files      | `/v1/file/`         |
+| Folders    | `/v1/folder/`       |
+| Batch ops  | `/v1/batch/`        |
+| Cloud      | `/v1/cloud/`        |
+| Samba      | `/v1/samba/`        |
+| Notify     | `/v1/notify/`       |
+| Port       | `/v1/port/`         |
+| Other      | `/v1/other/`        |
+| Zerotier   | `/v1/zt/`           |
+
+## Base URL
+
+```
+http://<your-casaos-ip>/
+```
+
+Replace `<your-casaos-ip>` with the IP address of the device running CasaOS on your local network.
+
+## Request and response format
+
+All API endpoints accept and return JSON. Set the `Content-Type` header to `application/json` for requests that include a body.
+
+Responses follow a consistent envelope:
 
 ```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+{
+  "message": "ok",
+  "data": { ... }
+}
 ```
+
+The `message` field contains a human-readable status string. The `data` field contains the response payload and varies by endpoint.
+
+## Example request
+
+```bash
+curl http://192.168.1.100/v2/casaos/health/services \
+  -H "Authorization: <your-token>"
+```
+
+```json
+{
+  "message": "",
+  "data": {
+    "running": ["casaos-gateway.service", "casaos-app-management.service"],
+    "not_running": []
+  }
+}
+```
+
+## Endpoint categories
+
+<CardGroup cols={2}>
+  <Card title="Health" icon="heart-pulse" href="/api-reference/health">
+    Check service status, ports in use, and system logs
+  </Card>
+  <Card title="Files" icon="file" href="/api-reference/files">
+    Upload, download, and manage files on your CasaOS device
+  </Card>
+  <Card title="System" icon="server" href="/api-reference/system">
+    Query hardware info, system utilization, and version details
+  </Card>
+  <Card title="Storage" icon="hard-drive" href="/api-reference/storage">
+    List and manage mounted cloud and local storage
+  </Card>
+  <Card title="Network" icon="network-wired" href="/api-reference/network">
+    Inspect ports and manage ZeroTier network connections
+  </Card>
+  <Card title="Authentication" icon="lock" href="/api-reference/authentication">
+    Learn how to authenticate API requests using JWT tokens
+  </Card>
+</CardGroup>

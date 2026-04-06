@@ -1,0 +1,191 @@
+---
+title: "Network"
+description: "Configure network settings and manage ZeroTier remote access"
+---
+
+CasaOS exposes ZeroTier network management through two surfaces: a v2 endpoint that surfaces CasaOS-specific ZeroTier status, and a v1 proxy that forwards arbitrary requests directly to the local ZeroTier One daemon's REST API.
+
+---
+
+## ZeroTier overview
+
+[ZeroTier](https://www.zerotier.com/) is a software-defined networking tool that creates encrypted peer-to-peer virtual networks. CasaOS uses ZeroTier to enable secure remote access to your device without port forwarding or VPN configuration.
+
+<Note>
+  ZeroTier One must be installed separately on the host system running CasaOS. The daemon listens locally on port `9993`. CasaOS does not install or manage the ZeroTier daemon itself.
+</Note>
+
+---
+
+## Get ZeroTier info
+
+`GET /v2/casaos/zt/info`
+
+Returns the status of the CasaOS-managed ZeroTier network (identified by the `RANW_NAME` constant). This endpoint queries the local ZeroTier controller API and returns the network ID, name, and connectivity status.
+
+### Response body
+
+<ResponseField name="id" type="string">
+  ZeroTier network ID. Example: `"1234567890abcdef"`.
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  ZeroTier network name.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Network status. `"online"` if the default route is not set via an intermediate gateway; `"offline"` otherwise.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url http://casaos.local/v2/casaos/zt/info \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "id": "1234567890abcdef",
+  "name": "CasaOS",
+  "status": "online"
+}
+```
+
+---
+
+## Set ZeroTier network status
+
+`PUT /v2/casaos/zt/:network_id/status`
+
+Sets the status of a specific ZeroTier network.
+
+### Path parameters
+
+<ParamField path="network_id" type="string" required>
+  The ZeroTier network ID to update. Example: `"1234567890abcdef"`.
+</ParamField>
+
+### Request body
+
+<ParamField body="status" type="string" required>
+  Target status. Accepted values: `"online"` or `"offline"`.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request PUT \
+  --url http://casaos.local/v2/casaos/zt/1234567890abcdef/status \
+  --header 'Authorization: <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{"status": "online"}'
+```
+
+</CodeGroup>
+
+---
+
+## ZeroTier proxy
+
+`ANY /v1/zt/*`
+
+All requests to `/v1/zt/` are forwarded verbatim to the ZeroTier One daemon running on the local machine. This proxy lets you use the full ZeroTier REST API through the CasaOS authentication layer without exposing the ZeroTier daemon port directly.
+
+The wildcard path segment maps directly to the ZeroTier API path:
+
+| CasaOS path | ZeroTier daemon path |
+|---|---|
+| `GET /v1/zt/status` | `GET http://localhost:9993/status` |
+| `GET /v1/zt/network` | `GET http://localhost:9993/network` |
+| `POST /v1/zt/network/{id}` | `POST http://localhost:9993/network/{id}` |
+| `DELETE /v1/zt/network/{id}` | `DELETE http://localhost:9993/network/{id}` |
+
+<Note>
+  The proxy accepts all HTTP methods (`GET`, `POST`, `PUT`, `DELETE`, etc.) and forwards request bodies unchanged. Refer to the [ZeroTier One service API documentation](https://docs.zerotier.com/service/v1/) for the full list of available endpoints and their parameters.
+</Note>
+
+### Common operations via the proxy
+
+<AccordionGroup>
+  <Accordion title="Get ZeroTier node status">
+    Returns the local node's address, version, and online state.
+
+    ```bash cURL
+    curl --request GET \
+      --url http://casaos.local/v1/zt/status \
+      --header 'Authorization: <token>'
+    ```
+
+    ```json Response
+    {
+      "address": "a1b2c3d4e5",
+      "clock": 1710504000000,
+      "config": {},
+      "online": true,
+      "version": "1.12.2"
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="List joined networks">
+    Returns all ZeroTier networks the local node has joined.
+
+    ```bash cURL
+    curl --request GET \
+      --url http://casaos.local/v1/zt/network \
+      --header 'Authorization: <token>'
+    ```
+
+    ```json Response
+    [
+      {
+        "id": "8056c2e21c000001",
+        "name": "my-home-network",
+        "status": "OK",
+        "type": "PRIVATE",
+        "assignedAddresses": ["10.147.17.12/16"]
+      }
+    ]
+    ```
+  </Accordion>
+
+  <Accordion title="Join a ZeroTier network">
+    Joins the local node to a ZeroTier network by ID. The node must be authorized by the network administrator before it receives an IP address.
+
+    ```bash cURL
+    curl --request POST \
+      --url http://casaos.local/v1/zt/network/8056c2e21c000001 \
+      --header 'Authorization: <token>' \
+      --header 'Content-Type: application/json' \
+      --data '{}'
+    ```
+  </Accordion>
+
+  <Accordion title="Leave a ZeroTier network">
+    Removes the local node from a ZeroTier network.
+
+    ```bash cURL
+    curl --request DELETE \
+      --url http://casaos.local/v1/zt/network/8056c2e21c000001 \
+      --header 'Authorization: <token>'
+    ```
+  </Accordion>
+
+  <Accordion title="List peers">
+    Returns all ZeroTier peers the local node is aware of.
+
+    ```bash cURL
+    curl --request GET \
+      --url http://casaos.local/v1/zt/peer \
+      --header 'Authorization: <token>'
+    ```
+  </Accordion>
+</AccordionGroup>

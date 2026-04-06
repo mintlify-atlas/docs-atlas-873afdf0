@@ -1,0 +1,454 @@
+---
+title: "System"
+description: "Monitor and manage the CasaOS system"
+---
+
+The system endpoints expose version information, hardware details, real-time resource utilization, log access, and power-state control. Port availability utilities are also provided so applications can find a free port before binding.
+
+<Note>
+  All endpoints require a valid `Authorization` header except when the request originates from `127.0.0.1` or `::1`.
+</Note>
+
+---
+
+## Get version info
+
+`GET /v1/sys/version`
+
+Checks whether a newer version of CasaOS is available and returns the current installed version.
+
+### Response body
+
+<ResponseField name="data" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="need_update" type="boolean">
+      `true` if a newer release is available on the update channel.
+    </ResponseField>
+    <ResponseField name="current_version" type="string">
+      The version string of the currently running CasaOS build. Example: `"0.4.4"`.
+    </ResponseField>
+    <ResponseField name="version" type="object">
+      Metadata about the latest available version, if an update is available.
+      <Expandable title="version properties">
+        <ResponseField name="version" type="string">Latest available version string.</ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url http://casaos.local/v1/sys/version \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": {
+    "need_update": true,
+    "current_version": "0.4.4",
+    "version": {
+      "version": "0.4.5"
+    }
+  }
+}
+```
+
+---
+
+## Trigger system update
+
+`POST /v1/sys/update`
+
+Initiates an update to the latest available CasaOS version. The update runs in the background; the endpoint returns immediately after scheduling the operation.
+
+<Warning>
+  This will upgrade the running CasaOS installation. Ensure you have a backup before triggering updates in production environments.
+</Warning>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request POST \
+  --url http://casaos.local/v1/sys/update \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK"
+}
+```
+
+---
+
+## Get hardware info
+
+`GET /v1/sys/hardware`
+
+Returns basic hardware information about the device running CasaOS.
+
+### Response body
+
+<ResponseField name="data" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="drive_model" type="string">
+      Device tree model string (e.g. board model from `/proc/device-tree/model`). Example: `"Raspberry Pi 4 Model B Rev 1.4"`.
+    </ResponseField>
+    <ResponseField name="arch" type="string">
+      CPU architecture as reported by the Go runtime. Example: `"arm64"`, `"amd64"`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url http://casaos.local/v1/sys/hardware \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": {
+    "drive_model": "Raspberry Pi 4 Model B Rev 1.4",
+    "arch": "arm64"
+  }
+}
+```
+
+---
+
+## Get system utilization
+
+`GET /v1/sys/utilization`
+
+Returns a snapshot of current CPU, memory, and network resource utilization. Additional keys from service status notifications may appear in the top-level `data` object.
+
+### Response body
+
+<ResponseField name="data" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="cpu" type="object">
+      CPU utilization data.
+      <Expandable title="cpu properties">
+        <ResponseField name="percent" type="number">Aggregate CPU usage percentage (0–100).</ResponseField>
+        <ResponseField name="num" type="integer">Number of logical CPU cores.</ResponseField>
+        <ResponseField name="model" type="string">Detected CPU vendor: `"intel"`, `"amd"`, or `"arm"`.</ResponseField>
+        <ResponseField name="temperature" type="number">CPU temperature in degrees Celsius, if available.</ResponseField>
+        <ResponseField name="power" type="number">CPU power draw in watts, if available.</ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="mem" type="object">
+      System memory statistics.
+      <Expandable title="mem properties">
+        <ResponseField name="total" type="integer">Total physical memory in bytes.</ResponseField>
+        <ResponseField name="used" type="integer">Memory currently in use, in bytes.</ResponseField>
+        <ResponseField name="available" type="integer">Memory available for allocation, in bytes.</ResponseField>
+        <ResponseField name="used_percent" type="number">Percentage of memory in use.</ResponseField>
+      </Expandable>
+    </ResponseField>
+    <ResponseField name="net" type="object[]">
+      Array of network interface statistics. Only active interfaces are included.
+      <Expandable title="net entry properties">
+        <ResponseField name="name" type="string">Interface name, e.g. `"eth0"`.</ResponseField>
+        <ResponseField name="bytes_sent" type="integer">Total bytes transmitted since last boot.</ResponseField>
+        <ResponseField name="bytes_recv" type="integer">Total bytes received since last boot.</ResponseField>
+        <ResponseField name="state" type="string">Interface link state, e.g. `"UP"`.</ResponseField>
+        <ResponseField name="time" type="integer">Unix timestamp of this sample.</ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url http://casaos.local/v1/sys/utilization \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": {
+    "cpu": {
+      "percent": 12.5,
+      "num": 4,
+      "model": "arm",
+      "temperature": 52.0,
+      "power": 3.2
+    },
+    "mem": {
+      "total": 4294967296,
+      "used": 1073741824,
+      "available": 3221225472,
+      "used_percent": 25.0
+    },
+    "net": [
+      {
+        "name": "eth0",
+        "bytes_sent": 1048576,
+        "bytes_recv": 5242880,
+        "state": "UP",
+        "time": 1710504000
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Get error logs
+
+`GET /v1/sys/logs`
+
+Returns the most recent CasaOS error log lines as a JSON array.
+
+### Query parameters
+
+<ParamField query="line" type="integer" default="100">
+  Number of log lines to return. Defaults to `100`.
+</ParamField>
+
+### Response body
+
+<ResponseField name="data" type="string[]">
+  Array of log line strings from the CasaOS error log.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url 'http://casaos.local/v1/sys/logs?line=50' \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": [
+    "2024/03/15 10:30:01 [ERROR] failed to connect to app store",
+    "2024/03/15 10:31:15 [WARN] disk usage above 90%"
+  ]
+}
+```
+
+---
+
+## Proxy an external request
+
+`GET /v1/sys/proxy`
+
+Forwards an HTTP GET request to the URL specified in the `url` query parameter and streams the response body back to the caller. This lets clients fetch external resources through the CasaOS host (useful for same-origin or network-limited scenarios).
+
+### Query parameters
+
+<ParamField query="url" type="string" required>
+  Fully-qualified external URL to fetch. Example: `https://example.com/data.json`.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url 'http://casaos.local/v1/sys/proxy?url=https://example.com/api/status' \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+---
+
+## Set system state
+
+`PUT /v1/sys/state/:state`
+
+Triggers a system-level power action.
+
+### Path parameters
+
+<ParamField path="state" type="string" required>
+  Power action to perform. Accepted values:
+  - `off` — shuts the system down.
+  - `restart` — reboots the system.
+</ParamField>
+
+<Warning>
+  These commands issue immediate OS-level shutdown or reboot signals. All running applications will be terminated without a graceful drain period.
+</Warning>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+# Reboot the system
+curl --request PUT \
+  --url http://casaos.local/v1/sys/state/restart \
+  --header 'Authorization: <token>'
+
+# Shut the system down
+curl --request PUT \
+  --url http://casaos.local/v1/sys/state/off \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": "The operation will be completed shortly."
+}
+```
+
+---
+
+## Get available port
+
+`GET /v1/port`
+
+Finds and returns an available (unbound) port number of the specified protocol type.
+
+### Query parameters
+
+<ParamField query="type" type="string" default="tcp">
+  Protocol type: `"tcp"` or `"udp"`.
+</ParamField>
+
+### Response body
+
+<ResponseField name="data" type="integer">
+  An available port number that is not currently in use.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url 'http://casaos.local/v1/port/?type=tcp' \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": 45231
+}
+```
+
+---
+
+## Check port availability
+
+`GET /v1/port/state/:port`
+
+Reports whether a specific port is available (not currently bound) for the given protocol.
+
+### Path parameters
+
+<ParamField path="port" type="integer" required>
+  Port number to check. Example: `8080`.
+</ParamField>
+
+### Query parameters
+
+<ParamField query="type" type="string" default="tcp">
+  Protocol type: `"tcp"` or `"udp"`.
+</ParamField>
+
+### Response body
+
+<ResponseField name="data" type="boolean">
+  `true` if the port is available, `false` if it is already in use.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url 'http://casaos.local/v1/port/state/8080?type=tcp' \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": true
+}
+```
+
+---
+
+## Search
+
+`GET /v1/other/search`
+
+Proxies a search request to the configured agent search backend. The `url` body field specifies the search query URL to delegate.
+
+### Request body
+
+<ParamField body="url" type="string" required>
+  URL to forward to the agent search service. Example: `https://search.casaos.io/query?q=homelab`.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url http://casaos.local/v1/other/search \
+  --header 'Authorization: <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{"url": "https://search.casaos.io/query?q=homelab"}'
+```
+
+</CodeGroup>

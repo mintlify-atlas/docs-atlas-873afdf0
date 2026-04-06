@@ -1,0 +1,448 @@
+---
+title: "Storage"
+description: "Manage cloud storage connections and SMB network shares"
+---
+
+CasaOS supports two categories of external storage: cloud drives (Google Drive, Dropbox, OneDrive) mounted via rclone, and SMB (Samba) network shares mounted from remote hosts. The storage endpoints let you list, connect, and disconnect both types.
+
+<Note>
+  All endpoints require a valid `Authorization` header except when the request originates from `127.0.0.1` or `::1`.
+</Note>
+
+---
+
+## Cloud storage
+
+### List mounted cloud storages
+
+`GET /v1/cloud`
+
+Returns all currently mounted cloud storage volumes. Each entry is annotated with the driver icon URL and the account username where available.
+
+### Response body
+
+<ResponseField name="data" type="object[]">
+  Array of mounted cloud storage entries.
+  <Expandable title="mount point properties" defaultOpen>
+    <ResponseField name="name" type="string">
+      Account username associated with the mount (e.g. `"user@gmail.com"`).
+    </ResponseField>
+    <ResponseField name="icon" type="string">
+      URL of the storage provider's icon image.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url http://casaos.local/v1/cloud \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": [
+    {
+      "name": "user@gmail.com",
+      "icon": "https://example.com/icons/google-drive.png"
+    },
+    {
+      "name": "user@outlook.com",
+      "icon": "https://example.com/icons/onedrive.png"
+    }
+  ]
+}
+```
+
+---
+
+### Unmount a cloud storage
+
+`DELETE /v1/cloud`
+
+Unmounts the cloud storage at the specified mount point and removes its rclone configuration.
+
+### Request body
+
+<ParamField body="mount_point" type="string" required>
+  Absolute path of the mount point to unmount. Example: `/mnt/gdrive`.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request DELETE \
+  --url http://casaos.local/v1/cloud \
+  --header 'Authorization: <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{"mount_point": "/mnt/gdrive"}'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": "success"
+}
+```
+
+---
+
+### List available storage drivers
+
+`GET /v1/driver`
+
+Returns a list of available rclone-compatible storage driver configurations supported by this CasaOS installation.
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url http://casaos.local/v1/driver \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+---
+
+## SMB connections
+
+SMB connections represent remote Samba servers that CasaOS mounts as local directories under `/mnt/<host>/`. When a connection is created, CasaOS enumerates the available shares on the remote host and mounts each one automatically.
+
+### List SMB connections
+
+`GET /v1/samba/connections`
+
+Returns all configured SMB server connections. Passwords are not included in the response.
+
+### Response body
+
+<ResponseField name="data" type="object[]">
+  Array of SMB connection records.
+  <Expandable title="connection properties" defaultOpen>
+    <ResponseField name="id" type="integer">Unique connection identifier.</ResponseField>
+    <ResponseField name="host" type="string">Hostname or IP address of the remote SMB server.</ResponseField>
+    <ResponseField name="port" type="string">Port number. Defaults to `"445"`.</ResponseField>
+    <ResponseField name="username" type="string">Username used to authenticate with the remote server.</ResponseField>
+    <ResponseField name="mount_point" type="string">Local directory where the connection is mounted, e.g. `/mnt/192.168.1.10`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url http://casaos.local/v1/samba/connections \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": [
+    {
+      "id": 1,
+      "host": "192.168.1.10",
+      "port": "445",
+      "username": "mediauser",
+      "mount_point": "/mnt/192.168.1.10"
+    }
+  ]
+}
+```
+
+---
+
+### Create an SMB connection
+
+`POST /v1/samba/connections`
+
+Connects to a remote Samba server, enumerates its shares, and mounts each one under `/mnt/<host>/<share>`. The connection details are persisted to the CasaOS database.
+
+<Note>
+  The `cifs-utils` package must be installed on the host for mounting to work. If the host is already connected, a `Record_ALREADY_EXIST` error is returned.
+</Note>
+
+### Request body
+
+<ParamField body="host" type="string" required>
+  Hostname or IP address of the remote Samba server. Any path component after the first `/` is stripped automatically.
+</ParamField>
+
+<ParamField body="username" type="string" required>
+  SMB username for authentication.
+</ParamField>
+
+<ParamField body="password" type="string" required>
+  SMB password for authentication.
+</ParamField>
+
+<ParamField body="port" type="string" default="445">
+  SMB port. Defaults to `"445"` if not provided.
+</ParamField>
+
+### Response body
+
+<ResponseField name="data" type="object">
+  The created connection record, mirroring the request body plus assigned fields.
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="id" type="integer">Assigned connection ID.</ResponseField>
+    <ResponseField name="host" type="string">Normalized host address.</ResponseField>
+    <ResponseField name="port" type="string">Port used.</ResponseField>
+    <ResponseField name="username" type="string">SMB username.</ResponseField>
+    <ResponseField name="mount_point" type="string">Base mount path, e.g. `/mnt/192.168.1.10`.</ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request POST \
+  --url http://casaos.local/v1/samba/connections \
+  --header 'Authorization: <token>' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "host": "192.168.1.10",
+    "username": "mediauser",
+    "password": "s3cret",
+    "port": "445"
+  }'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": {
+    "id": 1,
+    "host": "192.168.1.10",
+    "port": "445",
+    "username": "mediauser",
+    "mount_point": "/mnt/192.168.1.10"
+  }
+}
+```
+
+---
+
+### Delete an SMB connection
+
+`DELETE /v1/samba/connections/:id`
+
+Unmounts all shares associated with the connection, removes empty mount directories, and deletes the connection record.
+
+### Path parameters
+
+<ParamField path="id" type="string" required>
+  ID of the connection to delete, as returned by the list or create endpoints.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request DELETE \
+  --url http://casaos.local/v1/samba/connections/1 \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": "1"
+}
+```
+
+---
+
+## SMB shares
+
+SMB shares make local CasaOS directories accessible to other devices on the network via the Samba service.
+
+### List SMB shares
+
+`GET /v1/samba/shares`
+
+Returns all directories currently shared over SMB from this CasaOS device.
+
+### Response body
+
+<ResponseField name="data" type="object[]">
+  Array of share records.
+  <Expandable title="share properties" defaultOpen>
+    <ResponseField name="id" type="integer">Unique share identifier.</ResponseField>
+    <ResponseField name="path" type="string">Absolute local path being shared. Example: `/DATA/media`.</ResponseField>
+    <ResponseField name="anonymous" type="boolean">`true` if the share is accessible without a password (guest access).</ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url http://casaos.local/v1/samba/shares \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": [
+    {
+      "id": 1,
+      "path": "/DATA/media",
+      "anonymous": true
+    }
+  ]
+}
+```
+
+---
+
+### Create an SMB share
+
+`POST /v1/samba/shares`
+
+Exposes one or more local directories as Samba shares. The share name is derived from the base directory name. The directory is set to world-writable permissions (`0777`) to enable anonymous access.
+
+### Request body
+
+An array of share objects.
+
+<ParamField body="path" type="string" required>
+  Absolute path of the local directory to share. The directory must exist. Example: `/DATA/media`.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request POST \
+  --url http://casaos.local/v1/samba/shares \
+  --header 'Authorization: <token>' \
+  --header 'Content-Type: application/json' \
+  --data '[{"path": "/DATA/media"}]'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": [
+    {
+      "path": "/DATA/media",
+      "anonymous": true
+    }
+  ]
+}
+```
+
+---
+
+### Delete an SMB share
+
+`DELETE /v1/samba/shares/:id`
+
+Stops sharing the directory with the given ID. The directory itself is not removed.
+
+### Path parameters
+
+<ParamField path="id" type="string" required>
+  ID of the share to delete, as returned by the list or create endpoints.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request DELETE \
+  --url http://casaos.local/v1/samba/shares/1 \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": "1"
+}
+```
+
+---
+
+### Get Samba service status
+
+`GET /v1/samba/shares/status`
+
+Checks whether the `smbd` system service is running and whether the Samba configuration file has been initialized by CasaOS.
+
+### Response body
+
+<ResponseField name="data" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="need_init" type="string">
+      `"true"` if `/etc/samba/smb.conf` does not exist or was not created by CasaOS; `"false"` otherwise. When `"true"`, the Samba configuration should be initialized before creating shares.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url http://casaos.local/v1/samba/shares/status \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "success": 200,
+  "message": "OK",
+  "data": {
+    "need_init": "false"
+  }
+}
+```

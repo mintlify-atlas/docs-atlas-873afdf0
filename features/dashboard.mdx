@@ -1,0 +1,54 @@
+---
+title: "Dashboard"
+description: "Monitor your system in real time from the CasaOS web interface"
+---
+
+The dashboard is the first thing you see when you open CasaOS. It gives you a live view of your system's health and quick access to every installed app — all from a single screen.
+
+## What the dashboard shows
+
+<CardGroup cols={2}>
+  <Card title="CPU usage" icon="microchip">
+    Current utilization across all cores, CPU model (Intel, AMD, or ARM), core count, temperature, and power draw.
+  </Card>
+  <Card title="Memory usage" icon="memory">
+    Total RAM installed, how much is in use, and how much remains free.
+  </Card>
+  <Card title="Disk usage" icon="hard-drive">
+    Total capacity and used space across your primary storage.
+  </Card>
+  <Card title="Network activity" icon="network-wired">
+    Real-time upload and download throughput for each active network interface, along with interface state.
+  </Card>
+</CardGroup>
+
+## Real-time updates
+
+The dashboard refreshes automatically — you do not need to reload the page. CasaOS maintains a persistent WebSocket connection between your browser and the server. System utilization data (CPU, memory, network) is pushed to the browser continuously, so the widgets always reflect current conditions.
+
+<Tip>The dashboard works over your local network. For best performance, keep your browser on the same network as your CasaOS device.</Tip>
+
+## App widgets
+
+Every app you install from the App Store appears on the dashboard as a widget or shortcut tile. Widgets show the app's icon and name, and clicking one opens the app in a new tab. This gives you a home-screen-style launcher for all your self-hosted services without having to remember individual ports or URLs.
+
+## Navigating from the dashboard
+
+The dashboard sidebar provides direct access to the main sections of CasaOS:
+
+| Section | What you can do |
+|---|---|
+| **App Store** | Browse, install, and remove Docker apps |
+| **Files** | Browse and manage files on your server |
+| **Storage** | Mount drives, SMB shares, and cloud storage |
+| **Settings** | Configure network, users, and system preferences |
+
+## System actions
+
+From the dashboard you can also trigger system-level actions:
+
+- **Check for updates** — CasaOS compares your installed version against the latest release and notifies you when an update is available.
+- **Restart** — Restart the CasaOS service.
+- **Shut down** — Power off the host device.
+
+<Warning>Shut down and restart affect the entire machine, not just CasaOS. Make sure no critical operations are in progress before using these controls.</Warning>

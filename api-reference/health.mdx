@@ -1,0 +1,144 @@
+---
+title: "Health"
+description: "Check the status of CasaOS services and monitor system health"
+---
+
+The health endpoints let you inspect the running state of all `casaos-*` systemd services, enumerate ports currently in use, and download a compressed archive of the CasaOS log directory.
+
+<Note>
+  All v2 endpoints require a valid `Authorization` header except when the request originates from `127.0.0.1` or `::1`.
+</Note>
+
+---
+
+## Get service status
+
+`GET /v2/casaos/health/services`
+
+Returns two lists: services that are currently running and services that are not. The check queries systemd for all units matching the `casaos*` pattern.
+
+### Response body
+
+<ResponseField name="data" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="running" type="string[]">
+      Names of `casaos-*` systemd units that are active and running. Example: `casaos-gateway.service`.
+    </ResponseField>
+    <ResponseField name="not_running" type="string[]">
+      Names of `casaos-*` systemd units that are inactive or failed. Example: `casaos.service`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message from the server. Empty string on success.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url http://casaos.local/v2/casaos/health/services \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "message": "",
+  "data": {
+    "running": [
+      "casaos-gateway.service",
+      "casaos-user-service.service",
+      "casaos-app-management.service"
+    ],
+    "not_running": [
+      "casaos.service"
+    ]
+  }
+}
+```
+
+---
+
+## Get ports in use
+
+`GET /v2/casaos/health/ports`
+
+Returns all TCP and UDP ports currently bound on the host system.
+
+### Response body
+
+<ResponseField name="data" type="object">
+  <Expandable title="properties" defaultOpen>
+    <ResponseField name="tcp" type="integer[]">
+      List of TCP ports currently in use. Example: `[80, 443, 8080]`.
+    </ResponseField>
+    <ResponseField name="udp" type="integer[]">
+      List of UDP ports currently in use. Example: `[53, 5353]`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message from the server.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url http://casaos.local/v2/casaos/health/ports \
+  --header 'Authorization: <token>'
+```
+
+</CodeGroup>
+
+```json Response
+{
+  "message": "",
+  "data": {
+    "tcp": [80, 443, 3000, 8080],
+    "udp": [53, 5353]
+  }
+}
+```
+
+---
+
+## Get logs
+
+`GET /v2/casaos/health/logs`
+
+Downloads all files from `/var/log/casaos` as a ZIP archive. The response body is a binary stream — use a tool that can handle binary downloads.
+
+<Warning>
+  The response content type is `application/octet-stream`. Do not pass this URL to a JSON client expecting structured output.
+</Warning>
+
+### Response
+
+| Status | Content-Type | Description |
+|--------|-------------|-------------|
+| `200`  | `application/octet-stream` | ZIP archive containing all CasaOS log files |
+| `500`  | `application/json` | Server error with message field |
+
+The `Content-Disposition` header is set to `attachment; filename*=utf-8''casaos.zip`.
+
+### Example
+
+<CodeGroup>
+
+```bash cURL
+curl --request GET \
+  --url http://casaos.local/v2/casaos/health/logs \
+  --header 'Authorization: <token>' \
+  --output casaos-logs.zip
+```
+
+</CodeGroup>

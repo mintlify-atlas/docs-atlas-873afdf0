@@ -1,0 +1,52 @@
+---
+title: "Uninstalling CasaOS"
+description: "Remove CasaOS from your system"
+---
+
+You can uninstall CasaOS using one of two methods depending on the version you have installed. The correct command differs between v0.3.3 and older releases.
+
+<Warning>
+  Uninstalling CasaOS removes the CasaOS application, its services, and its configuration files. Data stored in your home directory or on mounted drives (such as files in `/DATA`) is **not** automatically deleted, but app containers and their associated volumes will be removed along with Docker. Back up anything you want to keep before proceeding.
+</Warning>
+
+<Note>
+  To check your current version before uninstalling, run `casaos -v` in a terminal.
+</Note>
+
+## Uninstall by version
+
+<Tabs>
+  <Tab title="v0.3.3 or newer">
+    If you are running CasaOS v0.3.3 or later, use the built-in uninstall command:
+
+    ```bash
+    casaos-uninstall
+    ```
+
+    This command stops all CasaOS services, removes installed components, and cleans up configuration files. Follow any prompts that appear during the process.
+  </Tab>
+  <Tab title="Before v0.3.3">
+    If you are running a version older than v0.3.3, use the uninstall script provided by IceWhale:
+
+    ```bash
+    curl -fsSL https://get.icewhale.io/casaos-uninstall.sh | sudo bash
+    ```
+
+    This script performs the same cleanup steps as the built-in command on older installations.
+  </Tab>
+</Tabs>
+
+## What gets removed
+
+| Component | Removed? |
+|---|---|
+| CasaOS application and services | Yes |
+| CasaOS configuration files (`/etc/casaos/`) | Yes |
+| CasaOS log files (`/var/log/casaos/`) | Yes |
+| Installed app containers | Yes |
+| Files in `/DATA` or on mounted drives | No |
+| Docker Engine | No |
+
+<Tip>
+  If you plan to reinstall CasaOS later, you can run the standard one-line installer again at any time. See the [quickstart](/quickstart) for the install command.
+</Tip>

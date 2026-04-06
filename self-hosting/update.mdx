@@ -1,0 +1,64 @@
+---
+title: "Updating CasaOS"
+description: "Keep your CasaOS installation up to date"
+---
+
+CasaOS can be updated from the web UI or from a terminal session. The current release is **v0.4.15**.
+
+<Note>
+  Back up any important data before performing a major version update. While updates preserve your configuration and installed apps, it is good practice to have a recent backup before changing versions.
+</Note>
+
+## Update from the UI
+
+The simplest way to update CasaOS is through the web interface. CasaOS checks for new versions automatically and notifies you when one is available.
+
+<Steps>
+  <Step title="Open Settings">
+    In the CasaOS dashboard, click the **Settings** icon in the top-right corner of the screen.
+  </Step>
+  <Step title="Navigate to the update section">
+    Scroll down to find the **Update** section. If a new version is available, you will see a prompt with the version number and a button to proceed.
+  </Step>
+  <Step title="Start the update">
+    Click **Update** to begin. CasaOS will download and apply the update. The interface will reload automatically when the update is complete.
+  </Step>
+</Steps>
+
+## Update from a terminal
+
+You can also update CasaOS by running the update script from a terminal session.
+
+<Warning>
+  Terminal updates **must** be run from an SSH session or a directly attached keyboard and terminal — not from the terminal emulator inside the CasaOS web UI. The web UI terminal runs inside the CasaOS process; updating from it will interrupt the session mid-update and may leave the installation in an inconsistent state.
+</Warning>
+
+Connect to your device over SSH, then run one of the following commands:
+
+<CodeGroup>
+
+```bash wget
+wget -qO- https://get.casaos.io/update | sudo bash
+```
+
+```bash curl
+curl -fsSL https://get.casaos.io/update | sudo bash
+```
+
+</CodeGroup>
+
+The script downloads the latest release and restarts the CasaOS services automatically.
+
+## Check the current version
+
+To confirm which version of CasaOS is installed, run:
+
+```bash
+casaos -v
+```
+
+The output shows the installed version number, for example:
+
+```
+v0.4.15
+```

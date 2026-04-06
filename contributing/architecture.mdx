@@ -1,0 +1,312 @@
+---
+title: "Architecture overview"
+description: "Understand how CasaOS is structured and how its components interact"
+---
+
+CasaOS is a Go application that exposes a multi-version HTTP API, stores persistent data in SQLite, and communicates with companion services through a Gateway and a Message Bus. This page describes the major components and how they fit together.
+
+## High-level structure
+
+<CardGroup cols={2}>
+  <Card title="HTTP server (Echo)" icon="server">
+    The main process binds to a random available port on `127.0.0.1` and serves three API versions plus a documentation UI through a single handler multiplexer.
+  </Card>
+  <Card title="Gateway routing" icon="arrow-right-arrow-left">
+    Routes are not exposed directly. The main process registers each API path prefix with the CasaOS Gateway service, which handles external traffic and port management.
+  </Card>
+  <Card title="Service layer" icon="layers">
+    Business logic is isolated behind a `Repository` interface implemented by a single `store` struct. Every capability — system info, file operations, storage, notifications — is a named service accessed through this interface.
+  </Card>
+  <Card title="Message Bus" icon="message-square">
+    CasaOS publishes events to a shared Message Bus service. The Message Bus is treated as a soft dependency; the application continues running even if the bus is unreachable.
+  </Card>
+</CardGroup>
+
+## Entry point and startup sequence
+
+`main.go` is the entry point. The `init()` function runs before `main()` and handles configuration, database initialization, and service wiring:
+
+```go
+// main.go
+func init() {
+    config.InitSetup(*configFlag, _confSample)
+    logger.LogInit(config.AppInfo.LogPath, config.AppInfo.LogSaveName, config.AppInfo.LogFileExt)
+
+    sqliteDB = sqlite.GetDb(*dbFlag)
+
+    service.MyService = service.NewService(sqliteDB, config.CommonInfo.RuntimePath)
+    service.Cache = cache.Init()
+
+    route.InitFunction()
+}
+```
+
+`main()` then initializes each API router, registers all route prefixes with the Gateway, and starts the HTTP server:
+
+```go
+func main() {
+    v1Router := route.InitV1Router()
+    v2Router := route.InitV2Router()
+    v2DocRouter := route.InitV2DocRouter(_docHTML, _docYAML)
+    v3File := route.InitFile()
+
+    mux := &util_http.HandlerMultiplexer{
+        HandlerMap: map[string]http.Handler{
+            "v1":  v1Router,
+            "v2":  v2Router,
+            "v3":  v3File,
+            "doc": v2DocRouter,
+        },
+    }
+
+    listener, err := net.Listen("tcp", net.JoinHostPort(LOCALHOST, "0"))
+    // ...
+    s := &http.Server{Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+    s.Serve(listener)
+}
+```
+
+The listener binds on port `0`, letting the OS assign an available port. The address is written to a URL file at `<RuntimePath>/casaos.url` so the Gateway can discover it.
+
+## API versions
+
+CasaOS exposes three API versions through a single multiplexer. Each version is a separate `http.Handler`:
+
+| Version | Path prefix | Implementation | Description |
+|---------|------------|----------------|-------------|
+| v1 | `/v1/...` | `route/v1.go` | Legacy REST endpoints (file, system, samba, notify, etc.) |
+| v2 | Defined in OpenAPI spec | `route/v2.go` | OpenAPI-driven endpoints with schema validation |
+| v3 | `/v3/file` | `route/v2.go` (`InitFile`) | Token-authenticated direct file serving |
+
+### v1 routes
+
+The v1 router uses [Echo](https://echo.labstack.com/) with CORS, Gzip, and JWT middleware. Requests from `127.0.0.1` skip JWT validation. Route groups include:
+
+```
+/v1/sys       — system info, version, hardware, SSH, utilization
+/v1/port      — port state checks
+/v1/file      — file CRUD, uploads, WebSocket file transfer
+/v1/folder    — directory operations
+/v1/batch     — multi-file delete, move, compress
+/v1/image     — image preview
+/v1/samba     — SMB/CIFS connections and shares
+/v1/notify    — push notifications
+/v1/cloud     — network storage mounts
+/v1/driver    — driver info
+/v1/other     — search
+/v1/zt        — ZeroTier proxy
+```
+
+### v2 routes
+
+The v2 router is generated from the OpenAPI spec at `api/casaos/openapi.yaml` using `oapi-codegen`. Request validation is performed by `kin-openapi` middleware before handlers run. Multipart file uploads skip validation due to a known upstream limitation.
+
+The base URL path is read dynamically from the spec's `servers[0].URL` field:
+
+```go
+// route/v2.go
+func init() {
+    swagger, _ := codegen.GetSwagger()
+    u, _ := url.Parse(swagger.Servers[0].URL)
+    V2APIPath = strings.TrimRight(u.Path, "/")
+    V2DocPath = "/doc" + V2APIPath
+    V3FilePath = "/v3/file"
+}
+```
+
+The OpenAPI spec and an interactive HTML viewer are embedded in the binary at build time and served at `<V2DocPath>` and `<V2DocPath>/openapi.yaml`.
+
+### v3 file handler
+
+`/v3/file` is a simple `http.Handler` (not Echo) that validates a JWT query parameter and then calls `http.ServeFile`. It is intended for direct file downloads with token-based auth.
+
+## Service layer
+
+All business logic is accessed through a `Repository` interface defined in `service/service.go`. A single global instance `service.MyService` is initialized at startup and used throughout the application:
+
+```go
+// service/service.go
+type Repository interface {
+    Casa()        CasaService
+    Connections() ConnectionsService
+    Gateway()     external.ManagementService
+    Health()      HealthService
+    Notify()      NotifyServer
+    Rely()        RelyService
+    Shares()      SharesService
+    System()      SystemService
+    Storage()     StorageService
+    MessageBus()  *message_bus.ClientWithResponses
+    Peer()        PeerService
+    Other()       OtherService
+}
+```
+
+`NewService` constructs the concrete `store` struct and wires all implementations:
+
+```go
+func NewService(db *gorm.DB, RuntimePath string) Repository {
+    gatewayManagement, err := external.NewManagementService(RuntimePath)
+    // ...
+    return &store{
+        casa:        NewCasaService(),
+        connections: NewConnectionsService(db),
+        gateway:     gatewayManagement,
+        notify:      NewNotifyService(db),
+        rely:        NewRelyService(db),
+        system:      NewSystemService(),
+        health:      NewHealthService(),
+        shares:      NewSharesService(db),
+        storage:     NewStorageService(),
+        other:       NewOtherService(),
+        peer:        NewPeerService(db),
+    }
+}
+```
+
+Services that need persistent storage receive the `*gorm.DB` instance. Stateless services (like `SystemService`) do not.
+
+| Service | File | Responsibility |
+|---------|------|----------------|
+| `CasaService` | `service/casa.go` | Core CasaOS state |
+| `ConnectionsService` | `service/connections.go` | SMB/CIFS mount management |
+| `Gateway` (`external.ManagementService`) | CasaOS-Common | Route registration with the Gateway |
+| `HealthService` | `service/health.go` | Health checks |
+| `NotifyServer` | `service/notify.go` | Push notification delivery |
+| `RelyService` | `service/rely.go` | Dependency tracking |
+| `SharesService` | `service/shares.go` | Samba share configuration |
+| `SystemService` | `service/system.go` | Hardware info, disk, CPU, memory, network |
+| `StorageService` | `service/storage.go` | Block device and mount management |
+| `MessageBus` | Generated client | Event publication to the Message Bus |
+| `PeerService` | `service/peer.go` | Peer drive discovery |
+| `OtherService` | `service/other.go` | Miscellaneous utilities (search, etc.) |
+
+## Persistent storage
+
+CasaOS uses SQLite for persistent data, managed through [GORM](https://gorm.io/) with the `glebarez/sqlite` driver (no CGo dependency for the driver itself, though `CGO_ENABLED=1` is required for the static build).
+
+The database file is created at startup:
+
+```go
+// pkg/sqlite/db.go
+db, err := gorm.Open(sqlite.Open(dbPath+"/casaOS.db"), &gorm.Config{})
+```
+
+GORM auto-migrates the following models on startup:
+
+- `AppNotify` — notification records
+- `SharesDBModel` — Samba share definitions
+- `ConnectionsDBModel` — remote storage connection credentials
+- `PeerDriveDBModel` — peer drive discovery records
+
+## In-memory cache
+
+A short-lived in-memory cache (`github.com/patrickmn/go-cache`) is initialized alongside the database with a 5-minute TTL and a 60-second cleanup interval:
+
+```go
+// pkg/cache/cache.go
+func Init() *cache.Cache {
+    return cache.New(5*time.Minute, 60*time.Second)
+}
+```
+
+This cache is stored on `service.Cache` and used to avoid repeated expensive system calls (CPU thermal zone detection, for example).
+
+<Note>
+  Redis support exists in `pkg/gredis/redis.go` but is not wired into the current startup path. The Redis initialization call in `main.go` is commented out. The in-memory cache is the active caching mechanism.
+</Note>
+
+## Message Bus integration
+
+CasaOS publishes structured events to the [CasaOS-MessageBus](https://github.com/IceWhaleTech/CasaOS-MessageBus) service. The client is obtained on each call (not cached) and resolves the bus address from the shared runtime path at call time:
+
+```go
+// service/service.go
+func (c *store) MessageBus() *message_bus.ClientWithResponses {
+    client, _ := message_bus.NewClientWithResponses("", func(c *message_bus.Client) error {
+        messageBusAddress, err := external.GetMessageBusAddress(config.CommonInfo.RuntimePath)
+        if err != nil {
+            c.Server = "message bus address not found"
+            return nil
+        }
+        c.Server = messageBusAddress
+        return nil
+    })
+    return client
+}
+```
+
+On startup, CasaOS registers its event types with the bus (retrying up to 10 times with 1-second intervals) so other services can subscribe to them.
+
+## Package layout
+
+```
+CasaOS/
+├── main.go                 # Entry point, HTTP server, startup wiring
+├── api/
+│   └── casaos/
+│       └── openapi.yaml    # OpenAPI v3 spec (source of truth for v2 API)
+├── codegen/                # Generated from openapi.yaml — do not edit by hand
+│   ├── casaos_api.go
+│   └── message_bus/
+│       └── api.go
+├── cmd/
+│   ├── message-bus-docgen/ # Tool to generate Message Bus documentation
+│   └── migration-tool/     # Database migration helper
+├── common/                 # Shared constants (version, service name, events)
+├── model/                  # Data transfer objects and domain models
+├── pkg/
+│   ├── cache/              # In-memory cache initialization
+│   ├── config/             # Configuration file parsing and AppInfo structs
+│   ├── gredis/             # Redis pool (currently unused in main path)
+│   ├── sqlite/             # SQLite connection and auto-migration
+│   └── utils/              # File, encryption, HTTP, and other utilities
+├── route/
+│   ├── init.go             # Background tasks: network mount, info init
+│   ├── periodical.go       # Cron jobs (hardware status via WebSocket)
+│   ├── v1.go               # Echo router for v1 API
+│   ├── v1/                 # v1 handler implementations
+│   ├── v2.go               # Echo router for v2 API + v3 file handler
+│   └── v2/                 # v2 handler implementations
+└── service/
+    ├── service.go          # Repository interface and store constructor
+    ├── system.go           # SystemService implementation
+    ├── storage.go          # StorageService implementation
+    └── ...                 # One file per service
+```
+
+## OpenAPI specification
+
+The canonical API description lives at `api/casaos/openapi.yaml`. It is:
+
+- **Embedded** in the binary at build time via `//go:embed`
+- **Used to generate** typed server stubs in `codegen/casaos_api.go` via `oapi-codegen`
+- **Served** at runtime at `<V2DocPath>/openapi.yaml` alongside an interactive HTML viewer
+
+To regenerate the codegen output after modifying the spec:
+
+```bash
+go generate ./...
+```
+
+## Gateway integration
+
+CasaOS does not bind directly to a public port. Instead, it registers each of its URL path prefixes with the Gateway service (from `CasaOS-Common`) after starting its internal listener:
+
+```go
+routers := []string{
+    "/v1/sys", "/v1/port", "/v1/file", "/v1/folder",
+    "/v1/batch", "/v1/image", "/v1/samba", "/v1/notify",
+    "/v1/driver", "/v1/cloud", "/v1/recover", "/v1/other",
+    "/v1/zt", "/v1/test",
+    route.V2APIPath, route.V2DocPath, route.V3FilePath,
+}
+for _, apiPath := range routers {
+    service.MyService.Gateway().CreateRoute(&model.Route{
+        Path:   apiPath,
+        Target: "http://" + listener.Addr().String(),
+    })
+}
+```
+
+This design means changing the external port only requires reconfiguring the Gateway, without restarting or rebuilding CasaOS itself.

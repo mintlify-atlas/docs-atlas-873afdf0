@@ -1,0 +1,101 @@
+---
+title: "Storage Management"
+description: "Manage drives, mount network shares, and connect cloud storage"
+---
+
+CasaOS gives you three ways to expand or connect storage: sharing folders on your server with other devices over SMB, connecting to SMB shares hosted on other devices on your network, and mounting remote cloud storage providers as local drives.
+
+<Note>CasaOS supports Google Drive, Dropbox, and OneDrive as cloud storage providers. SMB connections work with any device that exposes Samba shares, including NAS devices, Windows machines, and other Linux servers.</Note>
+
+## SMB/Samba — sharing your folders
+
+You can expose any folder on your CasaOS server as an SMB share so that other computers on your local network can access it through Windows File Explorer, macOS Finder, or any SMB-capable client.
+
+Shared folders are visible in the [File Manager](/features/file-manager) with a **shared** badge.
+
+### Creating an SMB share
+
+<Steps>
+  <Step title="Open Storage management">
+    Click **Storage** in the CasaOS sidebar, then select the **Shares** tab.
+  </Step>
+  <Step title="Click Add share">
+    Click the **Add share** button.
+  </Step>
+  <Step title="Select the folder to share">
+    Use the folder picker to choose the directory you want to expose. The folder must already exist on the server.
+  </Step>
+  <Step title="Confirm">
+    Click **Create**. CasaOS registers the folder with the Samba service. The share is immediately accessible on your local network.
+  </Step>
+</Steps>
+
+<Note>CasaOS configures new shares as anonymous (no password required) by default. Anyone on your local network can read from and write to the share.</Note>
+
+### Removing an SMB share
+
+Open the **Shares** tab under **Storage**, find the share you want to remove, and click **Delete**. The underlying folder and its contents are not affected — only the Samba share entry is removed.
+
+## SMB/Samba — connecting to a network share
+
+You can mount SMB shares hosted on other devices (a NAS, a Windows PC, or another server) and access them through the CasaOS file manager as if they were local folders.
+
+<Steps>
+  <Step title="Open Storage management">
+    Click **Storage** in the CasaOS sidebar, then select the **Connections** tab.
+  </Step>
+  <Step title="Click Add connection">
+    Click the **Add connection** button.
+  </Step>
+  <Step title="Enter the host details">
+    Provide the following:
+    - **Host** — IP address or hostname of the remote device.
+    - **Username** — The account that has access to the share.
+    - **Password** — The account's password.
+    - **Port** — Defaults to `445` if left blank.
+  </Step>
+  <Step title="Connect">
+    Click **Connect**. CasaOS queries the host for its available shares, mounts each one under `/mnt/<host>/<share-name>`, and saves the connection so it reconnects automatically after a reboot.
+  </Step>
+</Steps>
+
+<Tip>You can browse the mounted shares immediately in the File Manager under the `/mnt` directory.</Tip>
+
+### Disconnecting a network share
+
+Open the **Connections** tab, find the connection, and click **Delete**. CasaOS unmounts all shares for that host and removes the saved connection. If the mount point directory is empty after unmounting, it is removed automatically.
+
+## Cloud storage — mounting remote drives
+
+CasaOS can mount Google Drive, Dropbox, and OneDrive accounts as local directories, making their contents accessible through the file manager like any other folder.
+
+### Supported providers
+
+| Provider | Description |
+|---|---|
+| **Google Drive** | Mount your Google Drive storage |
+| **Dropbox** | Mount your Dropbox account |
+| **OneDrive** | Mount your Microsoft OneDrive account |
+
+### Mounting a cloud drive
+
+<Steps>
+  <Step title="Open Storage management">
+    Click **Storage** in the CasaOS sidebar, then select the **Cloud** tab.
+  </Step>
+  <Step title="Choose a provider">
+    Select **Google Drive**, **Dropbox**, or **OneDrive** from the list of available drivers.
+  </Step>
+  <Step title="Authenticate">
+    Click the provider's authorization link. You will be redirected to the provider's login page to grant CasaOS access to your account.
+  </Step>
+  <Step title="Complete the mount">
+    After authorizing, CasaOS saves the credentials and mounts the remote storage under `/mnt`. The drive appears in the file manager immediately.
+  </Step>
+</Steps>
+
+### Unmounting a cloud drive
+
+Open the **Cloud** tab under **Storage**, find the mounted drive, and click **Unmount**. CasaOS stops the mount and removes the saved configuration for that account. Your data on the remote provider is not affected.
+
+<Warning>Files deleted through the CasaOS file manager while a cloud drive is mounted are deleted from the remote provider as well. This action cannot be undone from CasaOS.</Warning>
